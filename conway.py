@@ -235,10 +235,6 @@ def percent(num, total):
     return (num*100)/total
 
 def update(frameNum, img, grid, N):
-    # Stop animation when max generations are reached
-    if frameNum == generations-1:
-        animation.pause()
-
     # Apply GoL rules.
     newGrid = grid.copy()
 
@@ -286,6 +282,10 @@ def update(frameNum, img, grid, N):
         f.close()
     else:
         isFirst = False
+
+    # Stop animation when max generations are reached
+    if frameNum == generations-1:
+        animation.pause()
 
     # update data
     img.set_data(newGrid)
