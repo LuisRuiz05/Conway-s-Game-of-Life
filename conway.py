@@ -3,6 +3,8 @@ conway.py
 A simple Python/matplotlib implementation of Conway's Game of Life.
 """
 
+# If you'd like to see better performance at the animation, comment lines 262-288.
+
 import sys, argparse
 import numpy as np
 from datetime import datetime
@@ -12,6 +14,7 @@ import matplotlib.animation as animation
 ON = 255
 OFF = 0
 vals = [ON, OFF]
+isFirst = True
 
 # PATTERN TYPES DECLARATION #
 ##### STILL LIFES #####
@@ -26,26 +29,26 @@ beehive = np.array([
     [0, 255, 255, 0],
     [255, 0, 0, 255],
     [0, 255, 255, 0]
-]),
+])
 
 loaf = np.array([
     [0, 255, 255, 0],
     [255, 0, 0, 255],
     [0, 255, 0, 255],
     [0, 0, 255, 0]
-]),
+])
 
 boat = np.array([
     [255, 255, 0],
     [255, 0, 255],
     [0, 255, 0]
-]),
+])
 
 tub = np.array([
     [0, 255, 0],
     [255, 0, 255],
     [0, 255, 0]
-]),
+])
 
 ##### OSCILATORS #####
 
@@ -53,41 +56,41 @@ blinker1 = np.array([
     [0, 255, 0],
     [0, 255, 0],
     [0, 255, 0]
-]),
+])
 
 blinker2 = np.array([
     [0, 255, 0],
     [0, 255, 0],
     [0, 255, 0]
-]),
+])
 
 toad1 = np.array([
     [0, 0, 255, 0],
     [255, 0, 0, 255],
     [255, 0, 0, 255],
     [0, 255, 0, 0]
-]),
+])
 
 toad2 = np.array([
     [0, 0, 0, 0],
     [0, 255, 255, 255],
     [255, 255, 255, 0],
     [0, 0, 0, 0]
-]),
+])
 
 beacon1 = np.array([
     [255, 255, 0, 0],
     [255, 255, 0, 0],
     [0, 0, 255, 255],
     [0, 0, 255, 255]
-]),
+])
 
 beacon2 = np.array([
     [255, 255, 0, 0],
     [255, 0, 0, 0],
     [0, 0, 0, 255],
     [0, 0, 255, 255]
-]),
+])
 
 ##### SPACESHIPS #####
 
@@ -193,27 +196,45 @@ def createGrid(grid):
 
     return newGrid
 
-def update(frameNum, img, grid, N):
-    # Write in file.
-    f = open("output.txt", "a")
-    f.write("Iteration: " + str(frameNum)+"\n")
-    f.write("---------------------------------\n")
-    f.write(" Block        | Count | Percent |\n")
-    f.write(" Beehive      |  0    |  0      |\n")
-    f.write(" Loaf         |  0    |  0      |\n")
-    f.write(" Boat         |  0    |  0      |\n")
-    f.write(" Tub          |  0    |  0      |\n")
-    f.write(" Blinker      |  0    |  0      |\n")
-    f.write(" Toad         |  0    |  0      |\n")
-    f.write(" Beacon       |  0    |  0      |\n")
-    f.write(" Glider       |  0    |  0      |\n")
-    f.write(" LG sp ship   |  0    |  0      |\n")
-    f.write("---------------------------------\n")
-    f.write(" TOTAL        |  0    |         |\n")
-    f.write("---------------------------------\n")
-    f.write("\n")
-    f.close()
+def countPatterns(grid, pattern):
+    found = 0
 
+    pattern = np.array(pattern)
+    height, width = pattern.shape
+
+    for i in range(grid.shape[0] - height + 1):
+        for j in range(grid.shape[1] - width + 1):
+            if np.all(grid[i:i+height, j:j+width] == pattern):
+                found += 1
+
+    return found
+
+def getTotalCount(grid):
+    blocks = countPatterns(grid, block)
+    beehives = countPatterns(grid, beehive)
+    loaves = countPatterns(grid, loaf)
+    boats = countPatterns(grid, boat)
+    tubs = countPatterns(grid, tub)
+    blinkers = countPatterns(grid, blinker1) + countPatterns(grid, blinker2)
+    toads = countPatterns(grid, toad1) + countPatterns(grid, toad2)
+    beacons = countPatterns(grid, beacon1) + countPatterns(grid, beacon2)
+    gliders = countPatterns(grid, glider1) + countPatterns(grid, glider2) + countPatterns(grid, glider3) + countPatterns(grid, glider4)
+    lw_sp = countPatterns(grid, lw_sp1) + countPatterns(grid, lw_sp2) + countPatterns(grid, lw_sp3) + countPatterns(grid, lw_sp4)
+    
+    t = blocks + beehives + loaves + boats + tubs + blinkers + toads + beacons + gliders + lw_sp
+    count = [blocks, beehives, loaves, boats, tubs, blinkers, toads, beacons, gliders, lw_sp, t]
+    percentages = [percent(blocks, t), percent(beehives, t), percent(loaves, t), percent(boats, t), percent(tubs, t),
+                   percent(blinkers, t), percent(toads, t), percent(beacons, t), percent(gliders, t), percent(lw_sp, t)]
+
+    return count, percentages
+
+def percent(num, total):
+    if total == 0:
+        return 0
+    
+    return (num*100)/total
+
+def update(frameNum, img, grid, N):
     # Stop animation when max generations are reached
     if frameNum == generations-1:
         animation.pause()
@@ -237,6 +258,34 @@ def update(frameNum, img, grid, N):
                 # Any cell with 3 living neighbours becomes a living cell as in reproduction.
                 if neighbours == 3:
                     newGrid[i, j] = ON
+    
+    count, percent = getTotalCount(newGrid)
+
+    global isFirst
+
+    # Write in file.
+    if not isFirst:
+        f = open("output.txt", "a")
+        f.write("Iteration: " + str(frameNum)+"\n")
+        f.write("---------------------------------\n")
+        f.write("              | Count | Percent |\n")
+        f.write(" Block        |  " + str(count[0]) + "    |  " + str(percent[0]) + "      |\n")
+        f.write(" Beehive      |  " + str(count[1]) + "    |  " + str(percent[1]) + "      |\n")
+        f.write(" Loaf         |  " + str(count[2]) + "    |  " + str(percent[2]) + "      |\n")
+        f.write(" Boat         |  " + str(count[3]) + "    |  " + str(percent[3]) + "      |\n")
+        f.write(" Tub          |  " + str(count[4]) + "    |  " + str(percent[4]) + "      |\n")
+        f.write(" Blinker      |  " + str(count[5]) + "    |  " + str(percent[5]) + "      |\n")
+        f.write(" Toad         |  " + str(count[6]) + "    |  " + str(percent[6]) + "      |\n")
+        f.write(" Beacon       |  " + str(count[7]) + "    |  " + str(percent[7]) + "      |\n")
+        f.write(" Glider       |  " + str(count[8]) + "    |  " + str(percent[8]) + "      |\n")
+        f.write(" LG sp ship   |  " + str(count[9]) + "    |  " + str(percent[9]) + "      |\n")
+        f.write("---------------------------------\n")
+        f.write(" TOTAL        |  " + str(count[10]) + "    |         |\n")
+        f.write("---------------------------------\n")
+        f.write("\n")
+        f.close()
+    else:
+        isFirst = False
 
     # update data
     img.set_data(newGrid)
@@ -245,6 +294,10 @@ def update(frameNum, img, grid, N):
 
 # main() function
 def main():
+    # Will fix a bug where 1st iteration is printed twice
+    global isFirst 
+    isFirst = True
+
     # Read input file and set program.
     readInput()
     
